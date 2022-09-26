@@ -1,0 +1,71 @@
+syntax = "proto3";
+package mith.v1;
+
+enum ERROR {
+    ERROR_UNSPECIFIED = 0;
+    ERROR_NOT_FOUND = 1;
+    ERROR_ALREADY_EXISTS = 2;
+    ERROR_USING_VPN = 3;
+    ERROR_INVALID_PASSWORD = 4;
+}
+
+service AuthService {
+    rpc Login (LoginRequest) returns (LoginResponse) {}
+    rpc Register (RegisterRequest) returns (RegisterResponse) {}
+    rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse) {}
+    rpc Acknowledge (AcknowledgeRequest) returns (AcknowledgeResponse) {}
+    rpc Retrieve (RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+message LoginRequest {
+    string uuid = 1;
+    string password = 2;
+    string ip = 3;
+}
+
+message LoginResponse {
+    bool success = 1;
+    ERROR error = 2;
+}
+
+message RegisterRequest {
+    string uuid = 1;
+    string password = 2;
+    string ip = 3;
+}
+
+message RegisterResponse {
+    bool success = 1;
+    ERROR error = 2;
+    string security_code = 3;
+}
+
+message ChangePasswordRequest {
+    string uuid = 1;
+    string old_password = 2;
+    string new_password = 3;
+    string ip = 4;
+}
+
+message ChangePasswordResponse {
+    bool success = 1;
+    ERROR error = 2;
+}
+
+message AcknowledgeRequest {
+    string uuid = 1;
+}
+
+message AcknowledgeResponse {
+    bool success = 1;
+    ERROR error = 2;
+}
+
+message RetrieveRequest {
+    string uuid = 1;
+}
+
+message RetrieveResponse {
+    bool success = 1;
+    ERROR error = 2;
+}
