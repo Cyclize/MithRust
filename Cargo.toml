@@ -32,7 +32,7 @@ sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "mysql", "uuid", 
 path = "src/lib.rs"
 
 [[bin]]
-name = "mith-server"
+name = "mith"
 path = "src/main.rs"
 
 [build-dependencies]
