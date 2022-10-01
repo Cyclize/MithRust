@@ -8,25 +8,9 @@ use sqlx::{
     types::Uuid,
     ConnectOptions, FromRow, MySql, Pool,
 };
-use std::{fmt, str::FromStr};
+use std::str::FromStr;
 
-#[derive(Debug, Clone)]
-pub struct NewPlayerError;
-
-impl fmt::Display for NewPlayerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "error while creating new player instance")
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UpdatePasswordError;
-
-impl fmt::Display for UpdatePasswordError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "error while updating player password")
-    }
-}
+use crate::error::{NewPlayerError, UpdatePasswordError};
 
 #[derive(Debug)]
 pub struct Database {
@@ -53,10 +37,6 @@ impl Database {
         Ok(Database {
             pool: MySqlPoolOptions::new().connect_with(options).await?,
         })
-    }
-
-    pub async fn shutdown(&self) {
-        self.pool.close().await;
     }
 
     pub async fn insert(&self, player: Player) -> Result<(), sqlx::Error> {

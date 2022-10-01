@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ahash::RandomState;
 use config::Config;
 use fern::{
     colors::{Color, ColoredLevelConfig},
@@ -54,7 +55,7 @@ pub fn init_logger() {
 
 pub async fn using_vpn(
     config: Arc<Config>,
-    cache: Cache<String, bool>,
+    cache: Cache<String, bool, RandomState>,
     ip: &String,
 ) -> Result<bool, ProxyCheckError> {
     if let Some(result) = cache.get(&ip.to_string()) {

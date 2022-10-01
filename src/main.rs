@@ -1,9 +1,10 @@
+use ahash::RandomState;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use config::Config;
 use log::{error, info};
 use mimalloc::MiMalloc;
 use moka::future::Cache;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
@@ -26,7 +27,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[derive(Debug)]
 pub struct MithServer {
     database: Database,
-    cache: Cache<String, bool>,
+    cache: Cache<String, bool, RandomState>,
     config: Arc<Config>,
 }
 
@@ -465,7 +466,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database = Database::new(config.get_string("database")?).await?;
     info!("Successfully connected to the database");
 
-    let cache = Cache::new(10_000);
+    let cache = Cache::builder()
+        .time_to_live(Duration::from_secs(config.get_int("cache.ttl")? as u64))
+        .weigher(|_key: &String, value: &bool| -> u32 { u32::from(value.to_owned()) })
+        .max_capacity((config.get_int("cache.size")? as u64) * 1024 * 1024)
+        .build_with_hasher(RandomState::new());
+
     let addr = config.get_string("host")?.parse()?;
 
     let server = MithServer {

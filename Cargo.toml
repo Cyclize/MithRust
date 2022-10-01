@@ -7,6 +7,7 @@ publish = false
 [profile.release]
 lto = true
 strip = true
+incremental = true
 codegen-units = 1
 panic = "abort"
 
@@ -16,6 +17,7 @@ hex = "0.4.3"
 serde = "1.0"
 prost = "0.11"
 chrono = "0.4"
+ahash = "0.8.0"
 argon2 = "0.4.1"
 config = "0.13.2"
 serde_json = "1.0"
