@@ -473,11 +473,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache,
         config: config.clone(),
     };
+
+    let token = config.get_string("token")?;
     let service = AuthServiceServer::with_interceptor(
         server,
-        move |req: Request<()>| -> Result<Request<()>, Status> {
-            check_auth(config.clone().get_string("token").unwrap(), req)
-        },
+        move |req: Request<()>| -> Result<Request<()>, Status> { check_auth(&token, req) },
     );
 
     info!("Listening on {}", addr);

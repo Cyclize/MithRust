@@ -136,7 +136,7 @@ impl Player {
                 password,
                 security_code: security_code.clone(),
             },
-            security_code.clone(),
+            security_code,
         ))
     }
 

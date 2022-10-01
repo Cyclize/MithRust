@@ -12,7 +12,7 @@ use tonic::{metadata::MetadataValue, Request, Status};
 
 use crate::error::ProxyCheckError;
 
-pub fn check_auth(token: String, req: Request<()>) -> Result<Request<()>, Status> {
+pub fn check_auth(token: &String, req: Request<()>) -> Result<Request<()>, Status> {
     let token: MetadataValue<_> = match format!("Bearer {}", token).parse() {
         Ok(meta) => meta,
         Err(err) => {
@@ -57,12 +57,9 @@ pub async fn using_vpn(
     cache: Cache<String, bool>,
     ip: &String,
 ) -> Result<bool, ProxyCheckError> {
-    match cache.get(&ip.to_string()) {
-        Some(result) => {
-            debug!("Using cached result for {}: {}", &ip.to_string(), result);
-            return Ok(result);
-        }
-        None => (),
+    if let Some(result) = cache.get(&ip.to_string()) {
+        debug!("Using cached result for {}: {}", &ip.to_string(), result);
+        return Ok(result);
     }
 
     let request_url = format!(
