@@ -13,24 +13,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v1
-    - name: Cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - name: Build
-      run: RUSTFLAGS="-C link-arg=-fuse-ld=lld target-cpu=znver1" cargo build --release
-    - name: Package
-      run: upx --best --lzma ./target/release/mith
-    - name: Upload
-      uses: actions/upload-artifact@v3
-      with:
-        name: Mith
-        path: target/release/mith
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build
+        run: RUSTFLAGS="-C link-arg=-fuse-ld=lld -C target-cpu=znver1" cargo build --release
+      - name: Package
+        run: upx --best --lzma ./target/release/mith
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: Mith
+          path: target/release/mith
