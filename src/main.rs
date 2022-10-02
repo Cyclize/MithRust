@@ -27,7 +27,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[derive(Debug)]
 pub struct MithServer {
     database: Database,
-    cache: Cache<String, bool, RandomState>,
+    cache: Cache<[u8; 4], bool, RandomState>,
     config: Arc<Config>,
 }
 
@@ -468,7 +468,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cache = Cache::builder()
         .time_to_live(Duration::from_secs(config.get_int("cache.ttl")? as u64))
-        .weigher(|_key: &String, value: &bool| -> u32 { u32::from(value.to_owned()) })
+        .weigher(|_key: &[u8; 4], value: &bool| -> u32 { u32::from(value.to_owned()) })
         .max_capacity((config.get_int("cache.size")? as u64) * 1024 * 1024)
         .build_with_hasher(RandomState::new());
 

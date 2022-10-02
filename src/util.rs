@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
 
 use ahash::RandomState;
 use config::Config;
@@ -55,23 +55,32 @@ pub fn init_logger() {
 
 pub async fn using_vpn(
     config: Arc<Config>,
-    cache: Cache<String, bool, RandomState>,
+    cache: Cache<[u8; 4], bool, RandomState>,
     ip: &String,
 ) -> Result<bool, ProxyCheckError> {
-    if let Some(result) = cache.get(&ip.to_string()) {
+    let ip = match Ipv4Addr::from_str(ip) {
+        Ok(ip) => ip,
+        Err(err) => {
+            error!("Failed to parse address {}: {}", ip, err);
+            return Err(ProxyCheckError);
+        }
+    };
+
+    if let Some(result) = cache.get(&ip.octets()) {
         debug!("Using cached result for {}: {}", &ip.to_string(), result);
         return Ok(result);
     }
 
     let request_url = format!(
         "http://proxycheck.io/v2/{ip}?key={key}&vpn=1",
+        ip = ip.to_string(),
         key = config.get_string("vpn").unwrap(),
     );
 
     let response = match reqwest::get(&request_url).await {
         Ok(res) => res,
         Err(err) => {
-            error!("Failed to make request for {}: {}", ip, err);
+            error!("Failed to make request for {}: {}", ip.to_string(), err);
             return Err(ProxyCheckError);
         }
     };
@@ -79,7 +88,7 @@ pub async fn using_vpn(
     let result: serde_json::Value = match response.json().await {
         Ok(res) => res,
         Err(err) => {
-            error!("Failed to parse JSON for {}: {}", ip, err);
+            error!("Failed to parse JSON for {}: {}", ip.to_string(), err);
             return Err(ProxyCheckError);
         }
     };
@@ -87,11 +96,11 @@ pub async fn using_vpn(
     debug!("{:?}", result);
 
     if result["status"].eq("ok") {
-        debug!("Inserting cache for {}: {}", &ip.to_string(), result);
+        debug!("Inserting cache for {}: {}", ip.to_string(), result);
         cache
-            .insert(ip.to_string(), result[ip]["proxy"].eq("yes"))
+            .insert(ip.octets(), result[ip.to_string()]["proxy"].eq("yes"))
             .await;
-        Ok(result[ip]["proxy"].eq("yes"))
+        Ok(result[ip.to_string()]["proxy"].eq("yes"))
     } else {
         Err(ProxyCheckError)
     }
