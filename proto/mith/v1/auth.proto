@@ -1,6 +1,10 @@
 syntax = "proto3";
 package mith.v1;
 
+option java_multiple_files = true;
+option java_package = "dev.luckynetwork.cyclize.mith.rpc";
+option java_outer_classname = "AuthProto";
+
 enum ERROR {
     ERROR_UNSPECIFIED = 0;
     ERROR_NOT_FOUND = 1;
@@ -30,8 +34,9 @@ message LoginResponse {
 
 message RegisterRequest {
     string uuid = 1;
-    string password = 2;
-    string ip = 3;
+    string username = 2;
+    string password = 3;
+    string ip = 4;
 }
 
 message RegisterResponse {
@@ -67,5 +72,5 @@ message RetrieveRequest {
 
 message RetrieveResponse {
     bool success = 1;
-    ERROR error = 2;
+    ERROR error = 3;
 }

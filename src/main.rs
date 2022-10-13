@@ -4,7 +4,7 @@ use config::Config;
 use log::{error, info};
 use mimalloc::MiMalloc;
 use moka::future::Cache;
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
@@ -197,17 +197,18 @@ impl AuthService for MithServer {
 
         let data = request.into_inner();
 
-        let (player, security_code) = match Player::new(data.uuid.clone(), data.password) {
-            Ok(res) => res,
-            Err(err) => {
-                error!("Failed to create new player instance: {}", err);
-                return Ok(Response::new(RegisterResponse {
-                    success: false,
-                    error: Error::Unspecified as i32,
-                    security_code: "null".to_string(),
-                }));
-            }
-        };
+        let (player, security_code) =
+            match Player::new(data.uuid.clone(), data.username, data.password) {
+                Ok(res) => res,
+                Err(err) => {
+                    error!("Failed to create new player instance: {}", err);
+                    return Ok(Response::new(RegisterResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                        security_code: "null".to_string(),
+                    }));
+                }
+            };
 
         if let Err(err) = self.database.insert(player).await {
             let database_error = match err.as_database_error() {
@@ -427,7 +428,7 @@ impl AuthService for MithServer {
         };
 
         match self.database.retrieve(uuid).await {
-            Ok(_) => (),
+            Ok(player) => player,
             Err(err) => match err {
                 sqlx::Error::RowNotFound => {
                     return Ok(Response::new(RetrieveResponse {
@@ -456,23 +457,64 @@ impl AuthService for MithServer {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_logger();
 
-    let config = Arc::new(
-        Config::builder()
-            .add_source(config::File::with_name("config.yml"))
-            .build()?,
-    );
+    let config = match Config::builder()
+        .add_source(config::File::with_name("config.yml"))
+        .build()
+    {
+        Ok(cfg) => cfg,
+        Err(err) => {
+            error!("Failed to build config: {}", err);
+            panic!()
+        }
+    };
+    let config = Arc::new(config);
 
     info!("Connecting to the database...");
-    let database = Database::new(config.get_string("database")?).await?;
+    let database = match config.get_string("database") {
+        Ok(db) => db,
+        Err(err) => {
+            error!("Failed to retrieve database URL from config: {}", err);
+            panic!();
+        }
+    };
+
+    let database = match Database::new(database).await {
+        Ok(db) => db,
+        Err(err) => {
+            error!("Failed to connect to database: {}", err);
+            panic!();
+        }
+    };
     info!("Successfully connected to the database");
 
+    let cache_ttl = match config.get_int("cache.ttl") {
+        Ok(ttl) => ttl as u64,
+        Err(_) => 360 as u64,
+    };
+    let cache_size = match config.get_int("cache.size") {
+        Ok(size) => size as u64,
+        Err(_) => 360 as u64,
+    };
+
     let cache = Cache::builder()
-        .time_to_live(Duration::from_secs(config.get_int("cache.ttl")? as u64))
+        .time_to_live(Duration::from_secs(cache_ttl))
         .weigher(|_key: &[u8; 4], value: &bool| -> u32 { u32::from(value.to_owned()) })
-        .max_capacity((config.get_int("cache.size")? as u64) * 1024 * 1024)
+        .max_capacity(cache_size * 1024 * 1024)
         .build_with_hasher(RandomState::new());
 
-    let addr = config.get_string("host")?.parse()?;
+    let addr = match config.get_string("host") {
+        Ok(host) => match SocketAddr::from_str(&host) {
+            Ok(addr) => addr,
+            Err(err) => {
+                error!("Failed to parse host address: {}", err);
+                panic!();
+            }
+        },
+        Err(err) => {
+            error!("Failed to get host config: {}", err);
+            panic!();
+        }
+    };
 
     let server = MithServer {
         database,
@@ -480,14 +522,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config: config.clone(),
     };
 
-    let token = config.get_string("token")?;
+    let token = match config.get_string("token") {
+        Ok(token) => token,
+        Err(err) => {
+            error!("Failed to get token config: {}", err);
+            panic!();
+        }
+    };
+
     let service = AuthServiceServer::with_interceptor(
         server,
         move |req: Request<()>| -> Result<Request<()>, Status> { check_auth(&token, req) },
     );
 
     info!("Listening on {}", addr);
-    Server::builder()
+    if let Err(err) = Server::builder()
         .add_service(service)
         .serve_with_shutdown(addr, async {
             match signal::ctrl_c().await {
@@ -495,7 +544,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Err(err) => error!("Unable to listen for shutdown signal: {}", err),
             }
         })
-        .await?;
+        .await
+    {
+        error!("Failed to start application server: {}", err);
+        panic!();
+    };
 
     Ok(())
 }

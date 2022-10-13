@@ -1,6 +1,6 @@
 {
   "db": "MySQL",
-  "06beadb67271cb4f70ef837703bf9c21957d62faa6f9b09f500db78ca13b3bd6": {
+  "157b9e6b83997f5976e43345471ff42b60c8285ec15fe684e20872e4784d0568": {
     "describe": {
       "columns": [
         {
@@ -16,8 +16,20 @@
           }
         },
         {
-          "name": "password",
+          "name": "username",
           "ordinal": 1,
+          "type_info": {
+            "char_set": 63,
+            "flags": {
+              "bits": 4229
+            },
+            "max_size": 32,
+            "type": "String"
+          }
+        },
+        {
+          "name": "password",
+          "ordinal": 2,
           "type_info": {
             "char_set": 224,
             "flags": {
@@ -29,7 +41,7 @@
         },
         {
           "name": "security_code",
-          "ordinal": 2,
+          "ordinal": 3,
           "type_info": {
             "char_set": 224,
             "flags": {
@@ -43,23 +55,14 @@
       "nullable": [
         false,
         false,
+        false,
         false
       ],
       "parameters": {
         "Right": 1
       }
     },
-    "query": "SELECT uuid AS \"uuid: Uuid\", password, security_code FROM players WHERE uuid = ?"
-  },
-  "15c849629f43168847112ba46553459659d7c408fb0aae2996b9584b2aa7cba7": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 3
-      }
-    },
-    "query": "INSERT INTO players (uuid, password, security_code) VALUES (?, ?, ?)"
+    "query": "SELECT uuid AS \"uuid: Uuid\", username, password, security_code FROM players WHERE uuid = ?"
   },
   "d744e4de87c876b643ef772f89d27db44edc85f5872177601b9b7d3c383becae": {
     "describe": {
@@ -70,5 +73,15 @@
       }
     },
     "query": "UPDATE players SET password = ? WHERE uuid = ?"
+  },
+  "fb391304962695cc24ce4733c240826188dff79cbb3bbbf170f4ca68e4b76dbb": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 4
+      }
+    },
+    "query": "INSERT INTO players (uuid, username, password, security_code) VALUES (?, ?, ?, ?)"
   }
 }

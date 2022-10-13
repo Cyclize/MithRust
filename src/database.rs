@@ -3,6 +3,7 @@ use argon2::{
     Argon2, PasswordHasher,
 };
 use log::error;
+use sha2::{Digest, Sha256};
 use sqlx::{
     mysql::{MySqlConnectOptions, MySqlPoolOptions},
     types::Uuid,
@@ -20,6 +21,7 @@ pub struct Database {
 #[derive(Debug, FromRow)]
 pub struct Player {
     pub uuid: Uuid,
+    pub username: Vec<u8>,
     pub password: String,
     pub security_code: String,
 }
@@ -41,8 +43,9 @@ impl Database {
 
     pub async fn insert(&self, player: Player) -> Result<(), sqlx::Error> {
         sqlx::query!(
-            "INSERT INTO players (uuid, password, security_code) VALUES (?, ?, ?)",
+            "INSERT INTO players (uuid, username, password, security_code) VALUES (?, ?, ?, ?)",
             player.uuid,
+            player.username,
             player.password,
             player.security_code,
         )
@@ -67,7 +70,7 @@ impl Database {
     pub async fn retrieve(&self, uuid: Uuid) -> Result<Player, sqlx::Error> {
         let player = sqlx::query_as!(
             Player,
-            r#"SELECT uuid AS "uuid: Uuid", password, security_code FROM players WHERE uuid = ?"#,
+            r#"SELECT uuid AS "uuid: Uuid", username, password, security_code FROM players WHERE uuid = ?"#,
             uuid,
         )
         .fetch_one(&self.pool)
@@ -78,7 +81,11 @@ impl Database {
 }
 
 impl Player {
-    pub fn new(uuid: String, password: String) -> Result<(Player, String), NewPlayerError> {
+    pub fn new(
+        uuid: String,
+        username: String,
+        password: String,
+    ) -> Result<(Player, String), NewPlayerError> {
         let uuid = match Uuid::try_parse(&uuid) {
             Ok(uuid) => uuid,
             Err(error) => {
@@ -88,8 +95,8 @@ impl Player {
         };
 
         let password = password.as_bytes();
-        let security_code = Uuid::new_v4();
-        let security_code = security_code.as_bytes();
+        let security_code_pt = Uuid::new_v4();
+        let security_code = security_code_pt.as_bytes();
 
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
@@ -110,13 +117,18 @@ impl Player {
             }
         };
 
+        let mut hasher = Sha256::new();
+        hasher.update(username.to_lowercase().as_bytes());
+        let username = hasher.finalize()[..].to_vec();
+
         Ok((
             Player {
                 uuid,
+                username,
                 password,
-                security_code: security_code.clone(),
+                security_code,
             },
-            security_code,
+            security_code_pt.to_string(),
         ))
     }
 
