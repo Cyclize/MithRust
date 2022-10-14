@@ -72,5 +72,5 @@ message RetrieveRequest {
 
 message RetrieveResponse {
     bool success = 1;
-    ERROR error = 3;
+    ERROR error = 2;
 }
