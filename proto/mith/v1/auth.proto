@@ -11,6 +11,7 @@ enum ERROR {
     ERROR_ALREADY_EXISTS = 2;
     ERROR_USING_VPN = 3;
     ERROR_INVALID_PASSWORD = 4;
+    ERROR_INVALID_USERNAME = 5;
 }
 
 service AuthService {
@@ -68,9 +69,11 @@ message AcknowledgeResponse {
 
 message RetrieveRequest {
     string uuid = 1;
+    string username = 2;
 }
 
 message RetrieveResponse {
     bool success = 1;
-    ERROR error = 2;
+    bool premium = 2;
+    ERROR error = 3;
 }

@@ -4,6 +4,8 @@ use config::Config;
 use log::{error, info};
 use mimalloc::MiMalloc;
 use moka::future::Cache;
+use regex::Regex;
+use reqwest::StatusCode;
 use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
@@ -158,8 +160,9 @@ impl AuthService for MithServer {
         };
 
         info!(
-            "Received Register({}, {}) request from {}",
+            "Received Register({}, {}, {}) request from {}",
             request.get_ref().uuid,
+            request.get_ref().username,
             request.get_ref().ip,
             remote_addr.ip()
         );
@@ -401,14 +404,16 @@ impl AuthService for MithServer {
                 error!("Failed to retrieve remote address");
                 return Ok(Response::new(RetrieveResponse {
                     success: false,
+                    premium: false,
                     error: Error::Unspecified as i32,
                 }));
             }
         };
 
         info!(
-            "Received Retrieve({}) request from {}",
+            "Received Retrieve({}, {}) request from {}",
             request.get_ref().uuid,
+            request.get_ref().username,
             remote_addr.ip()
         );
 
@@ -422,8 +427,30 @@ impl AuthService for MithServer {
                 );
                 return Ok(Response::new(RetrieveResponse {
                     success: false,
+                    premium: false,
                     error: Error::Unspecified as i32,
                 }));
+            }
+        };
+
+        let regex = Regex::new(r"^\w{3,16}$").unwrap();
+        if !regex.is_match(&request.get_ref().username) {
+            return Ok(Response::new(RetrieveResponse {
+                success: false,
+                premium: false,
+                error: Error::InvalidUsername as i32,
+            }));
+        }
+
+        let url = format!(
+            "https://api.ashcon.app/mojang/v2/user/{}",
+            request.get_ref().username
+        );
+        let premium = match reqwest::get(url).await {
+            Ok(res) => res.status() == StatusCode::OK,
+            Err(err) => {
+                error!("Failed to make request for {} UUID: {}", uuid, err);
+                false
             }
         };
 
@@ -433,6 +460,7 @@ impl AuthService for MithServer {
                 sqlx::Error::RowNotFound => {
                     return Ok(Response::new(RetrieveResponse {
                         success: false,
+                        premium,
                         error: Error::NotFound as i32,
                     }));
                 }
@@ -440,6 +468,7 @@ impl AuthService for MithServer {
                     error!("Error while retrieving data for {} UUID: {}", uuid, err);
                     return Ok(Response::new(RetrieveResponse {
                         success: false,
+                        premium,
                         error: Error::Unspecified as i32,
                     }));
                 }
@@ -448,6 +477,7 @@ impl AuthService for MithServer {
 
         Ok(Response::new(RetrieveResponse {
             success: true,
+            premium,
             error: Error::Unspecified as i32,
         }))
     }

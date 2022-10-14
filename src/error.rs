@@ -33,4 +33,5 @@ pub enum Error {
     AlreadyExists,
     UsingVpn,
     InvalidPassword,
+    InvalidUsername,
 }
