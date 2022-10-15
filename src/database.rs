@@ -23,7 +23,9 @@ pub struct Player {
     pub uuid: Uuid,
     pub username: Vec<u8>,
     pub password: String,
+    pub old_password: Option<String>,
     pub security_code: String,
+    pub locked: bool,
 }
 
 impl Database {
@@ -55,10 +57,30 @@ impl Database {
         Ok(())
     }
 
-    pub async fn update(&self, player: Player) -> Result<(), sqlx::Error> {
+    pub async fn update_password(&self, player: Player) -> Result<(), sqlx::Error> {
         sqlx::query!(
             "UPDATE players SET password = ? WHERE uuid = ?",
             player.password,
+            player.uuid,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query!(
+            "UPDATE players SET old_password = ? WHERE uuid = ?",
+            player.old_password,
+            player.uuid,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_locked(&self, player: Player) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE players SET locked = ? WHERE uuid = ?",
+            player.locked,
             player.uuid,
         )
         .execute(&self.pool)
@@ -70,7 +92,7 @@ impl Database {
     pub async fn retrieve(&self, uuid: Uuid) -> Result<Player, sqlx::Error> {
         let player = sqlx::query_as!(
             Player,
-            r#"SELECT uuid AS "uuid: Uuid", username, password, security_code FROM players WHERE uuid = ?"#,
+            r#"SELECT uuid AS "uuid: Uuid", username, password, old_password, security_code, locked AS "locked: bool" FROM players WHERE uuid = ?"#,
             uuid,
         )
         .fetch_one(&self.pool)
@@ -125,8 +147,10 @@ impl Player {
             Player {
                 uuid,
                 username,
+                old_password: None,
                 password,
                 security_code,
+                locked: false,
             },
             security_code_pt.to_string(),
         ))
@@ -138,6 +162,7 @@ impl Player {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
 
+        self.old_password = Some(self.password.clone());
         self.password = match argon2.hash_password(password, &salt) {
             Ok(hash) => hash.to_string(),
             Err(error) => {
@@ -147,5 +172,9 @@ impl Player {
         };
 
         Ok(())
+    }
+
+    pub fn update_locked(&mut self, locked: bool) -> () {
+        self.locked = locked;
     }
 }

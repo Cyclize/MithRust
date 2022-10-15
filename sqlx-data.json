@@ -1,6 +1,26 @@
 {
   "db": "MySQL",
-  "157b9e6b83997f5976e43345471ff42b60c8285ec15fe684e20872e4784d0568": {
+  "16a608435202833d5445585b66f6fc0efc4a19b8993795c2f02d2f59b2b235fb": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "UPDATE players SET locked = ? WHERE uuid = ?"
+  },
+  "4af194424d9fa26995c26148de92d6f7d153b08e1ed94941a2f624ac721a5199": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "UPDATE players SET old_password = ? WHERE uuid = ?"
+  },
+  "8bc5544f1d9ccc35f514e223f11dcffd2de93780e3598aef79d1d0dab9e55679": {
     "describe": {
       "columns": [
         {
@@ -40,8 +60,20 @@
           }
         },
         {
-          "name": "security_code",
+          "name": "old_password",
           "ordinal": 3,
+          "type_info": {
+            "char_set": 224,
+            "flags": {
+              "bits": 0
+            },
+            "max_size": 1024,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "security_code",
+          "ordinal": 4,
           "type_info": {
             "char_set": 224,
             "flags": {
@@ -50,11 +82,25 @@
             "max_size": 1024,
             "type": "VarString"
           }
+        },
+        {
+          "name": "locked: bool",
+          "ordinal": 5,
+          "type_info": {
+            "char_set": 63,
+            "flags": {
+              "bits": 4097
+            },
+            "max_size": 1,
+            "type": "Tiny"
+          }
         }
       ],
       "nullable": [
         false,
         false,
+        false,
+        true,
         false,
         false
       ],
@@ -62,7 +108,7 @@
         "Right": 1
       }
     },
-    "query": "SELECT uuid AS \"uuid: Uuid\", username, password, security_code FROM players WHERE uuid = ?"
+    "query": "SELECT uuid AS \"uuid: Uuid\", username, password, old_password, security_code, locked AS \"locked: bool\" FROM players WHERE uuid = ?"
   },
   "d744e4de87c876b643ef772f89d27db44edc85f5872177601b9b7d3c383becae": {
     "describe": {

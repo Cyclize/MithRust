@@ -17,8 +17,8 @@ use mith::{
     proto::{
         auth_service_server::{AuthService, AuthServiceServer},
         AcknowledgeRequest, AcknowledgeResponse, ChangePasswordRequest, ChangePasswordResponse,
-        LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, RetrieveRequest,
-        RetrieveResponse,
+        ControlRequest, ControlResponse, LoginRequest, LoginResponse, RegisterRequest,
+        RegisterResponse, RetrieveRequest, RetrieveResponse,
     },
     util::{check_auth, init_logger, using_vpn},
 };
@@ -92,7 +92,7 @@ impl AuthService for MithServer {
             }
         };
 
-        let player = match self.database.retrieve(uuid).await {
+        let mut player = match self.database.retrieve(uuid).await {
             Ok(player) => player,
             Err(err) => match err {
                 sqlx::Error::RowNotFound => {
@@ -114,6 +114,13 @@ impl AuthService for MithServer {
             },
         };
 
+        if player.locked {
+            return Ok(Response::new(LoginResponse {
+                success: false,
+                error: Error::AccountLocked as i32,
+            }));
+        }
+
         let stored_password = match PasswordHash::new(&player.password) {
             Ok(pw) => pw,
             Err(err) => {
@@ -128,12 +135,46 @@ impl AuthService for MithServer {
             }
         };
 
-        let valid = Argon2::default().verify_password(data.password.as_bytes(), &stored_password);
+        let valid = Argon2::default()
+            .verify_password(data.password.as_bytes(), &stored_password)
+            .is_err();
 
-        if valid.is_err() {
+        let mut old_valid = false;
+        if let Some(ref old_password) = player.old_password {
+            let old_password = match PasswordHash::new(&old_password) {
+                Ok(pw) => pw,
+                Err(err) => {
+                    error!(
+                        "Failed to parse password hash for {}: {}",
+                        &player.uuid, err
+                    );
+                    return Ok(Response::new(LoginResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                    }));
+                }
+            };
+
+            old_valid = Argon2::default()
+                .verify_password(data.password.as_bytes(), &old_password)
+                .is_err();
+        };
+
+        if valid {
+            if old_valid {
+                player.update_locked(true);
+                if let Err(err) = self.database.update_locked(player).await {
+                    error!("Error while updating data for {} UUID: {}", data.uuid, err);
+                    return Ok(Response::new(LoginResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                    }));
+                };
+            }
+
             Ok(Response::new(LoginResponse {
                 success: false,
-                error: Error::InvalidPassword as i32,
+                error: Error::AccountLocked as i32,
             }))
         } else {
             Ok(Response::new(LoginResponse {
@@ -353,7 +394,7 @@ impl AuthService for MithServer {
             }));
         };
 
-        if let Err(err) = self.database.update(player).await {
+        if let Err(err) = self.database.update_password(player).await {
             error!("Error while updating data for {} UUID: {}", data.uuid, err);
             return Ok(Response::new(ChangePasswordResponse {
                 success: false,
@@ -478,6 +519,26 @@ impl AuthService for MithServer {
         Ok(Response::new(RetrieveResponse {
             success: true,
             premium,
+            error: Error::Unspecified as i32,
+        }))
+    }
+
+    async fn control(
+        &self,
+        request: Request<ControlRequest>,
+    ) -> Result<Response<ControlResponse>, Status> {
+        let data = request.into_inner();
+
+        match data.r#type {
+            0 => {
+                info!("unspecified");
+            }
+            i32::MIN..=-1_i32 | 1_i32..=i32::MAX => {
+                info!("idk");
+            }
+        }
+        Ok(Response::new(ControlResponse {
+            success: false,
             error: Error::Unspecified as i32,
         }))
     }

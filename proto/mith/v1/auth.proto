@@ -12,6 +12,15 @@ enum ERROR {
     ERROR_USING_VPN = 3;
     ERROR_INVALID_PASSWORD = 4;
     ERROR_INVALID_USERNAME = 5;
+    ERROR_ACCOUNT_LOCKED = 6;
+}
+
+enum CONTROL {
+    CONTROL_UNSPECIFIED = 0;
+    CONTROL_WHITELIST = 1;
+    CONTROL_LOCK = 2;
+    CONTROL_UNLOCK = 3;
+    CONTROL_FLUSH = 4;
 }
 
 service AuthService {
@@ -20,6 +29,7 @@ service AuthService {
     rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse) {}
     rpc Acknowledge (AcknowledgeRequest) returns (AcknowledgeResponse) {}
     rpc Retrieve (RetrieveRequest) returns (RetrieveResponse) {}
+    rpc Control (ControlRequest) returns (ControlResponse) {}
 }
 
 message LoginRequest {
@@ -76,4 +86,14 @@ message RetrieveResponse {
     bool success = 1;
     bool premium = 2;
     ERROR error = 3;
+}
+
+message ControlRequest {
+    CONTROL type = 1;
+    string username = 2;
+}
+
+message ControlResponse {
+    bool success = 1;
+    ERROR error = 2;
 }

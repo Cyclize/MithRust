@@ -34,4 +34,5 @@ pub enum Error {
     UsingVpn,
     InvalidPassword,
     InvalidUsername,
+    AccountLocked,
 }
