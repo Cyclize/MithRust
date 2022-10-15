@@ -45,11 +45,12 @@ impl Database {
 
     pub async fn insert(&self, player: Player) -> Result<(), sqlx::Error> {
         sqlx::query!(
-            "INSERT INTO players (uuid, username, password, security_code) VALUES (?, ?, ?, ?)",
+            "INSERT INTO players (uuid, username, password, security_code, locked) VALUES (?, ?, ?, ?, ?)",
             player.uuid,
             player.username,
             player.password,
             player.security_code,
+            player.locked,
         )
         .execute(&self.pool)
         .await?;

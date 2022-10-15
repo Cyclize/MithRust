@@ -40,6 +40,16 @@
     },
     "query": "DELETE FROM whitelist WHERE ip = ?"
   },
+  "70fefbe03818fa079ca98f2c5d45a69315b2e6ec8689dad6f4b230a750639c95": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 5
+      }
+    },
+    "query": "INSERT INTO players (uuid, username, password, security_code, locked) VALUES (?, ?, ?, ?, ?)"
+  },
   "7ec63f64f6732e716c11f5b205ec0bc18d5eb56a00ffbfe926349d49d7c4ce4f": {
     "describe": {
       "columns": [
@@ -164,15 +174,5 @@
       }
     },
     "query": "UPDATE players SET password = ? WHERE uuid = ?"
-  },
-  "fb391304962695cc24ce4733c240826188dff79cbb3bbbf170f4ca68e4b76dbb": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 4
-      }
-    },
-    "query": "INSERT INTO players (uuid, username, password, security_code) VALUES (?, ?, ?, ?)"
   }
 }

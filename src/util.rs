@@ -73,7 +73,10 @@ pub async fn using_vpn(
     }
 
     match database.whitelist_check(ip.octets()).await {
-        Ok(_) => return Ok(false),
+        Ok(_) => {
+            cache.insert(ip.octets(), false).await;
+            return Ok(false);
+        }
         Err(err) => {
             if !matches!(err, sqlx::Error::RowNotFound) {
                 error!(
