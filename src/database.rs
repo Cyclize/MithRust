@@ -103,7 +103,7 @@ impl Database {
 
     pub async fn whitelist_add(&self, ip: [u8; 4]) -> Result<(), sqlx::Error> {
         sqlx::query!(r#"INSERT INTO whitelist (ip) VALUES (?)"#, ip.to_vec())
-            .fetch_one(&self.pool)
+            .execute(&self.pool)
             .await?;
 
         Ok(())
@@ -111,7 +111,7 @@ impl Database {
 
     pub async fn whitelist_remove(&self, ip: [u8; 4]) -> Result<(), sqlx::Error> {
         sqlx::query!(r#"DELETE FROM whitelist WHERE ip = ?"#, ip.to_vec())
-            .fetch_one(&self.pool)
+            .execute(&self.pool)
             .await?;
 
         Ok(())
