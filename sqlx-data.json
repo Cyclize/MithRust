@@ -40,6 +40,31 @@
     },
     "query": "DELETE FROM whitelist WHERE ip = ?"
   },
+  "7ec63f64f6732e716c11f5b205ec0bc18d5eb56a00ffbfe926349d49d7c4ce4f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "ip",
+          "ordinal": 0,
+          "type_info": {
+            "char_set": 63,
+            "flags": {
+              "bits": 4227
+            },
+            "max_size": 4,
+            "type": "String"
+          }
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT ip FROM whitelist WHERE ip = ?"
+  },
   "8bc5544f1d9ccc35f514e223f11dcffd2de93780e3598aef79d1d0dab9e55679": {
     "describe": {
       "columns": [

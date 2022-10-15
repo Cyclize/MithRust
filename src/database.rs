@@ -9,11 +9,11 @@ use sqlx::{
     types::Uuid,
     ConnectOptions, FromRow, MySql, Pool,
 };
-use std::{net::Ipv4Addr, str::FromStr};
+use std::str::FromStr;
 
 use crate::error::{NewPlayerError, UpdatePasswordError};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Database {
     pool: Pool<MySql>,
 }
@@ -101,40 +101,26 @@ impl Database {
         Ok(player)
     }
 
-    pub async fn whitelist_add(&self, ip: &String) -> Result<(), sqlx::Error> {
-        let ip = match Ipv4Addr::from_str(ip) {
-            Ok(ip) => ip,
-            Err(err) => {
-                error!("Failed to parse address {}: {}", ip, err);
-                return Err(sqlx::Error::PoolClosed);
-            }
-        };
-
-        sqlx::query!(
-            r#"INSERT INTO whitelist (ip) VALUES (?)"#,
-            ip.octets().to_vec()
-        )
-        .fetch_one(&self.pool)
-        .await?;
+    pub async fn whitelist_add(&self, ip: [u8; 4]) -> Result<(), sqlx::Error> {
+        sqlx::query!(r#"INSERT INTO whitelist (ip) VALUES (?)"#, ip.to_vec())
+            .fetch_one(&self.pool)
+            .await?;
 
         Ok(())
     }
 
-    pub async fn whitelist_remove(&self, ip: &String) -> Result<(), sqlx::Error> {
-        let ip = match Ipv4Addr::from_str(ip) {
-            Ok(ip) => ip,
-            Err(err) => {
-                error!("Failed to parse address {}: {}", ip, err);
-                return Err(sqlx::Error::PoolClosed);
-            }
-        };
+    pub async fn whitelist_remove(&self, ip: [u8; 4]) -> Result<(), sqlx::Error> {
+        sqlx::query!(r#"DELETE FROM whitelist WHERE ip = ?"#, ip.to_vec())
+            .fetch_one(&self.pool)
+            .await?;
 
-        sqlx::query!(
-            r#"DELETE FROM whitelist WHERE ip = ?"#,
-            ip.octets().to_vec()
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        Ok(())
+    }
+
+    pub async fn whitelist_check(&self, ip: [u8; 4]) -> Result<(), sqlx::Error> {
+        sqlx::query!(r#"SELECT ip FROM whitelist WHERE ip = ?"#, ip.to_vec())
+            .fetch_one(&self.pool)
+            .await?;
 
         Ok(())
     }

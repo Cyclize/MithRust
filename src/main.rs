@@ -6,7 +6,13 @@ use mimalloc::MiMalloc;
 use moka::future::Cache;
 use regex::Regex;
 use reqwest::StatusCode;
-use std::{net::SocketAddr, process::exit, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    process::exit,
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
@@ -60,6 +66,7 @@ impl AuthService for MithServer {
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
+            self.database.clone(),
             &request.get_ref().ip,
         )
         .await
@@ -211,6 +218,7 @@ impl AuthService for MithServer {
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
+            self.database.clone(),
             &request.get_ref().ip,
         )
         .await
@@ -548,7 +556,18 @@ impl AuthService for MithServer {
         match request.get_ref().r#type {
             // Whitelist
             1 => {
-                if let Err(err) = self.database.whitelist_add(&request.get_ref().id).await {
+                let ip = match Ipv4Addr::from_str(&request.get_ref().id) {
+                    Ok(ip) => ip.octets(),
+                    Err(err) => {
+                        error!("Failed to parse address {}: {}", &request.get_ref().id, err);
+                        return Ok(Response::new(ControlResponse {
+                            success: false,
+                            error: Error::Unspecified as i32,
+                        }));
+                    }
+                };
+
+                if let Err(err) = self.database.whitelist_add(ip).await {
                     error!(
                         "Error while adding {} to whitelist: {}",
                         request.get_ref().id,
@@ -560,6 +579,8 @@ impl AuthService for MithServer {
                     }));
                 };
 
+                self.cache.invalidate(&ip).await;
+
                 return Ok(Response::new(ControlResponse {
                     success: false,
                     error: Error::Unspecified as i32,
@@ -568,7 +589,18 @@ impl AuthService for MithServer {
 
             // Unwhitelist
             2 => {
-                if let Err(err) = self.database.whitelist_remove(&request.get_ref().id).await {
+                let ip = match Ipv4Addr::from_str(&request.get_ref().id) {
+                    Ok(ip) => ip.octets(),
+                    Err(err) => {
+                        error!("Failed to parse address {}: {}", &request.get_ref().id, err);
+                        return Ok(Response::new(ControlResponse {
+                            success: false,
+                            error: Error::Unspecified as i32,
+                        }));
+                    }
+                };
+
+                if let Err(err) = self.database.whitelist_remove(ip).await {
                     error!(
                         "Error while removing {} from whitelist: {}",
                         request.get_ref().id,
@@ -579,6 +611,8 @@ impl AuthService for MithServer {
                         error: Error::Unspecified as i32,
                     }));
                 };
+
+                self.cache.invalidate(&ip).await;
 
                 return Ok(Response::new(ControlResponse {
                     success: false,

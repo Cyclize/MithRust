@@ -11,7 +11,7 @@ use moka::future::Cache;
 use log::{debug, error};
 use tonic::{metadata::MetadataValue, Request, Status};
 
-use crate::error::ProxyCheckError;
+use crate::{database::Database, error::ProxyCheckError};
 
 pub fn check_auth(token: &String, req: Request<()>) -> Result<Request<()>, Status> {
     let token: MetadataValue<_> = match format!("Bearer {}", token).parse() {
@@ -56,6 +56,7 @@ pub fn init_logger() {
 pub async fn using_vpn(
     config: Arc<Config>,
     cache: Cache<[u8; 4], bool, RandomState>,
+    database: Database,
     ip: &String,
 ) -> Result<bool, ProxyCheckError> {
     let ip = match Ipv4Addr::from_str(ip) {
@@ -69,6 +70,20 @@ pub async fn using_vpn(
     if let Some(result) = cache.get(&ip.octets()) {
         debug!("Using cached result for {}: {}", &ip.to_string(), result);
         return Ok(result);
+    }
+
+    match database.whitelist_check(ip.octets()).await {
+        Ok(_) => return Ok(false),
+        Err(err) => {
+            if !matches!(err, sqlx::Error::RowNotFound) {
+                error!(
+                    "Error running whitelist check for {}: {}",
+                    ip.to_string(),
+                    err
+                );
+                return Err(ProxyCheckError);
+            }
+        }
     }
 
     let request_url = format!(
