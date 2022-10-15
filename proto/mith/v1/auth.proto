@@ -18,9 +18,10 @@ enum ERROR {
 enum CONTROL {
     CONTROL_UNSPECIFIED = 0;
     CONTROL_WHITELIST = 1;
-    CONTROL_LOCK = 2;
-    CONTROL_UNLOCK = 3;
-    CONTROL_FLUSH = 4;
+    CONTROL_UNWHITELIST = 2;
+    CONTROL_LOCK = 3;
+    CONTROL_UNLOCK = 4;
+    CONTROL_FLUSH = 5;
 }
 
 service AuthService {
@@ -90,7 +91,7 @@ message RetrieveResponse {
 
 message ControlRequest {
     CONTROL type = 1;
-    string username = 2;
+    string id = 2;
 }
 
 message ControlResponse {

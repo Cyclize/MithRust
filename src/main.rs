@@ -527,20 +527,184 @@ impl AuthService for MithServer {
         &self,
         request: Request<ControlRequest>,
     ) -> Result<Response<ControlResponse>, Status> {
-        let data = request.into_inner();
-
-        match data.r#type {
-            0 => {
-                info!("unspecified");
+        let remote_addr = match request.remote_addr() {
+            Some(remote_addr) => remote_addr,
+            None => {
+                error!("Failed to retrieve remote address");
+                return Ok(Response::new(ControlResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                }));
             }
-            i32::MIN..=-1_i32 | 1_i32..=i32::MAX => {
-                info!("idk");
+        };
+
+        info!(
+            "Received Control({}, {}) request from {}",
+            request.get_ref().r#type,
+            request.get_ref().id,
+            remote_addr.ip()
+        );
+
+        match request.get_ref().r#type {
+            // Whitelist
+            1 => {
+                if let Err(err) = self.database.whitelist_add(&request.get_ref().id).await {
+                    error!(
+                        "Error while adding {} to whitelist: {}",
+                        request.get_ref().id,
+                        err
+                    );
+                    return Ok(Response::new(ControlResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                    }));
+                };
+
+                return Ok(Response::new(ControlResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+
+            // Unwhitelist
+            2 => {
+                if let Err(err) = self.database.whitelist_remove(&request.get_ref().id).await {
+                    error!(
+                        "Error while removing {} from whitelist: {}",
+                        request.get_ref().id,
+                        err
+                    );
+                    return Ok(Response::new(ControlResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                    }));
+                };
+
+                return Ok(Response::new(ControlResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+
+            // Lock
+            3 => {
+                let uuid = match Uuid::try_parse(&request.get_ref().id) {
+                    Ok(uuid) => uuid,
+                    Err(err) => {
+                        error!("Error while parsing {} UUID: {}", request.get_ref().id, err);
+                        return Ok(Response::new(ControlResponse {
+                            success: false,
+                            error: Error::Unspecified as i32,
+                        }));
+                    }
+                };
+
+                let mut player = match self.database.retrieve(uuid).await {
+                    Ok(player) => player,
+                    Err(err) => match err {
+                        sqlx::Error::RowNotFound => {
+                            return Ok(Response::new(ControlResponse {
+                                success: false,
+                                error: Error::NotFound as i32,
+                            }));
+                        }
+                        _ => {
+                            error!("Error while retrieving data for {} UUID: {}", uuid, err);
+                            return Ok(Response::new(ControlResponse {
+                                success: false,
+                                error: Error::Unspecified as i32,
+                            }));
+                        }
+                    },
+                };
+
+                player.update_locked(true);
+                if let Err(err) = self.database.update_locked(player).await {
+                    error!(
+                        "Error while updating data for {} UUID: {}",
+                        request.get_ref().id,
+                        err
+                    );
+                    return Ok(Response::new(ControlResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                    }));
+                };
+
+                return Ok(Response::new(ControlResponse {
+                    success: true,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+
+            // Unlock
+            4 => {
+                let uuid = match Uuid::try_parse(&request.get_ref().id) {
+                    Ok(uuid) => uuid,
+                    Err(err) => {
+                        error!("Error while parsing {} UUID: {}", request.get_ref().id, err);
+                        return Ok(Response::new(ControlResponse {
+                            success: false,
+                            error: Error::Unspecified as i32,
+                        }));
+                    }
+                };
+
+                let mut player = match self.database.retrieve(uuid).await {
+                    Ok(player) => player,
+                    Err(err) => match err {
+                        sqlx::Error::RowNotFound => {
+                            return Ok(Response::new(ControlResponse {
+                                success: false,
+                                error: Error::NotFound as i32,
+                            }));
+                        }
+                        _ => {
+                            error!("Error while retrieving data for {} UUID: {}", uuid, err);
+                            return Ok(Response::new(ControlResponse {
+                                success: false,
+                                error: Error::Unspecified as i32,
+                            }));
+                        }
+                    },
+                };
+
+                player.update_locked(false);
+                if let Err(err) = self.database.update_locked(player).await {
+                    error!(
+                        "Error while updating data for {} UUID: {}",
+                        request.get_ref().id,
+                        err
+                    );
+                    return Ok(Response::new(ControlResponse {
+                        success: false,
+                        error: Error::Unspecified as i32,
+                    }));
+                };
+
+                return Ok(Response::new(ControlResponse {
+                    success: true,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+
+            // Flush
+            5 => {
+                self.cache.invalidate_all();
+                return Ok(Response::new(ControlResponse {
+                    success: true,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+
+            // Unknown
+            i32::MIN..=0 | 6..=i32::MAX => {
+                return Ok(Response::new(ControlResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                }));
             }
         }
-        Ok(Response::new(ControlResponse {
-            success: false,
-            error: Error::Unspecified as i32,
-        }))
     }
 }
 

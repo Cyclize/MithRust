@@ -9,7 +9,7 @@ use sqlx::{
     types::Uuid,
     ConnectOptions, FromRow, MySql, Pool,
 };
-use std::str::FromStr;
+use std::{net::Ipv4Addr, str::FromStr};
 
 use crate::error::{NewPlayerError, UpdatePasswordError};
 
@@ -99,6 +99,44 @@ impl Database {
         .await?;
 
         Ok(player)
+    }
+
+    pub async fn whitelist_add(&self, ip: &String) -> Result<(), sqlx::Error> {
+        let ip = match Ipv4Addr::from_str(ip) {
+            Ok(ip) => ip,
+            Err(err) => {
+                error!("Failed to parse address {}: {}", ip, err);
+                return Err(sqlx::Error::PoolClosed);
+            }
+        };
+
+        sqlx::query!(
+            r#"INSERT INTO whitelist (ip) VALUES (?)"#,
+            ip.octets().to_vec()
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn whitelist_remove(&self, ip: &String) -> Result<(), sqlx::Error> {
+        let ip = match Ipv4Addr::from_str(ip) {
+            Ok(ip) => ip,
+            Err(err) => {
+                error!("Failed to parse address {}: {}", ip, err);
+                return Err(sqlx::Error::PoolClosed);
+            }
+        };
+
+        sqlx::query!(
+            r#"DELETE FROM whitelist WHERE ip = ?"#,
+            ip.octets().to_vec()
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(())
     }
 }
 
