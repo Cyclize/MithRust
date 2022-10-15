@@ -6,7 +6,7 @@ use mimalloc::MiMalloc;
 use moka::future::Cache;
 use regex::Regex;
 use reqwest::StatusCode;
-use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, process::exit, str::FromStr, sync::Arc, time::Duration};
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
@@ -504,7 +504,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(db) => db,
         Err(err) => {
             error!("Failed to retrieve database URL from config: {}", err);
-            panic!();
+            exit(1);
         }
     };
 
@@ -512,7 +512,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(db) => db,
         Err(err) => {
             error!("Failed to connect to database: {}", err);
-            panic!();
+            exit(1);
         }
     };
     info!("Successfully connected to the database");
@@ -537,12 +537,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(addr) => addr,
             Err(err) => {
                 error!("Failed to parse host address: {}", err);
-                panic!();
+                exit(1);
             }
         },
         Err(err) => {
             error!("Failed to get host config: {}", err);
-            panic!();
+            exit(1);
         }
     };
 
@@ -556,7 +556,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(token) => token,
         Err(err) => {
             error!("Failed to get token config: {}", err);
-            panic!();
+            exit(1);
         }
     };
 
@@ -577,7 +577,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
     {
         error!("Failed to start application server: {}", err);
-        panic!();
+        exit(1);
     };
 
     Ok(())
