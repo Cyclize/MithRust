@@ -582,7 +582,7 @@ impl AuthService for MithServer {
                 self.cache.invalidate(&ip).await;
 
                 return Ok(Response::new(ControlResponse {
-                    success: false,
+                    success: true,
                     error: Error::Unspecified as i32,
                 }));
             }
@@ -615,7 +615,7 @@ impl AuthService for MithServer {
                 self.cache.invalidate(&ip).await;
 
                 return Ok(Response::new(ControlResponse {
-                    success: false,
+                    success: true,
                     error: Error::Unspecified as i32,
                 }));
             }
