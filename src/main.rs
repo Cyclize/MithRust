@@ -121,13 +121,6 @@ impl AuthService for MithServer {
             },
         };
 
-        if player.locked {
-            return Ok(Response::new(LoginResponse {
-                success: false,
-                error: Error::AccountLocked as i32,
-            }));
-        }
-
         let stored_password = match PasswordHash::new(&player.password) {
             Ok(pw) => pw,
             Err(err) => {
@@ -503,7 +496,7 @@ impl AuthService for MithServer {
             }
         };
 
-        match self.database.retrieve(uuid).await {
+        let player = match self.database.retrieve(uuid).await {
             Ok(player) => player,
             Err(err) => match err {
                 sqlx::Error::RowNotFound => {
@@ -523,6 +516,14 @@ impl AuthService for MithServer {
                 }
             },
         };
+
+        if player.locked {
+            return Ok(Response::new(RetrieveResponse {
+                success: false,
+                premium,
+                error: Error::AccountLocked as i32,
+            }));
+        }
 
         Ok(Response::new(RetrieveResponse {
             success: true,
