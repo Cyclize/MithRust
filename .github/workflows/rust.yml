@@ -27,8 +27,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build
         run: cargo build --release
-      - name: Package
-        run: upx --best --lzma ./target/release/mith
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
