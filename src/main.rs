@@ -1,9 +1,11 @@
 use ahash::RandomState;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use config::Config;
+use governor::{clock::DefaultClock, state::keyed::DefaultKeyedStateStore, Quota, RateLimiter};
 use log::{error, info};
 use mimalloc::MiMalloc;
 use moka::future::Cache;
+use nonzero_ext::*;
 use regex::Regex;
 use reqwest::StatusCode;
 use std::{
@@ -34,9 +36,10 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Debug)]
 pub struct MithServer {
-    database: Database,
-    cache: Cache<[u8; 4], bool, RandomState>,
     config: Arc<Config>,
+    database: Database,
+    bucket: Arc<RateLimiter<[u8; 4], DefaultKeyedStateStore<[u8; 4]>, DefaultClock>>,
+    cache: Cache<[u8; 4], bool, RandomState>,
 }
 
 #[tonic::async_trait]
@@ -63,11 +66,32 @@ impl AuthService for MithServer {
             remote_addr.ip()
         );
 
+        let ip = match Ipv4Addr::from_str(&request.get_ref().ip) {
+            Ok(ip) => ip,
+            Err(err) => {
+                error!("Failed to parse address {}: {}", &request.get_ref().ip, err);
+                return Ok(Response::new(LoginResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+        };
+
+        match self.bucket.clone().check_key(&ip.octets()) {
+            Ok(_) => (),
+            Err(_err) => {
+                return Ok(Response::new(LoginResponse {
+                    success: false,
+                    error: Error::RateLimited as i32,
+                }));
+            }
+        };
+
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
             self.database.clone(),
-            &request.get_ref().ip,
+            ip,
         )
         .await
         {
@@ -215,11 +239,34 @@ impl AuthService for MithServer {
             remote_addr.ip()
         );
 
+        let ip = match Ipv4Addr::from_str(&request.get_ref().ip) {
+            Ok(ip) => ip,
+            Err(err) => {
+                error!("Failed to parse address {}: {}", &request.get_ref().ip, err);
+                return Ok(Response::new(RegisterResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                    security_code: "null".to_string(),
+                }));
+            }
+        };
+
+        match self.bucket.clone().check_key(&ip.octets()) {
+            Ok(_) => (),
+            Err(_err) => {
+                return Ok(Response::new(RegisterResponse {
+                    success: false,
+                    error: Error::RateLimited as i32,
+                    security_code: "null".to_string(),
+                }));
+            }
+        };
+
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
             self.database.clone(),
-            &request.get_ref().ip,
+            ip,
         )
         .await
         {
@@ -331,6 +378,27 @@ impl AuthService for MithServer {
             request.get_ref().ip,
             remote_addr.ip()
         );
+
+        let ip = match Ipv4Addr::from_str(&request.get_ref().ip) {
+            Ok(ip) => ip,
+            Err(err) => {
+                error!("Failed to parse address {}: {}", &request.get_ref().ip, err);
+                return Ok(Response::new(ChangePasswordResponse {
+                    success: false,
+                    error: Error::Unspecified as i32,
+                }));
+            }
+        };
+
+        match self.bucket.clone().check_key(&ip.octets()) {
+            Ok(_) => (),
+            Err(_err) => {
+                return Ok(Response::new(ChangePasswordResponse {
+                    success: false,
+                    error: Error::RateLimited as i32,
+                }));
+            }
+        };
 
         let data = request.into_inner();
 
@@ -805,10 +873,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let bucket = Arc::new(RateLimiter::keyed(Quota::per_second(nonzero!(5u32))));
+
     let server = MithServer {
-        database,
-        cache,
         config: config.clone(),
+        database,
+        bucket,
+        cache,
     };
 
     let token = match config.get_string("token") {

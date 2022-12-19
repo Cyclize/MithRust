@@ -35,4 +35,5 @@ pub enum Error {
     InvalidPassword,
     InvalidUsername,
     AccountLocked,
+    RateLimited,
 }

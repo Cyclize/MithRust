@@ -1,4 +1,4 @@
-use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
+use std::{net::Ipv4Addr, sync::Arc};
 
 use ahash::RandomState;
 use config::Config;
@@ -57,16 +57,8 @@ pub async fn using_vpn(
     config: Arc<Config>,
     cache: Cache<[u8; 4], bool, RandomState>,
     database: Database,
-    ip: &String,
+    ip: Ipv4Addr,
 ) -> Result<bool, ProxyCheckError> {
-    let ip = match Ipv4Addr::from_str(ip) {
-        Ok(ip) => ip,
-        Err(err) => {
-            error!("Failed to parse address {}: {}", ip, err);
-            return Err(ProxyCheckError);
-        }
-    };
-
     if let Some(result) = cache.get(&ip.octets()) {
         debug!("Using cached result for {}: {}", &ip.to_string(), result);
         return Ok(result);
