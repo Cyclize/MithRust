@@ -9,6 +9,7 @@ use fern::{
 use moka::future::Cache;
 
 use log::{debug, error};
+use reqwest::Client;
 use tonic::{metadata::MetadataValue, Request, Status};
 
 use crate::{database::Database, error::ProxyCheckError};
@@ -56,6 +57,7 @@ pub fn init_logger() {
 pub async fn using_vpn(
     config: Arc<Config>,
     cache: Cache<[u8; 4], bool, RandomState>,
+    client: Arc<Client>,
     database: Database,
     ip: Ipv4Addr,
 ) -> Result<bool, ProxyCheckError> {
@@ -87,7 +89,7 @@ pub async fn using_vpn(
         key = config.get_string("vpn").unwrap(),
     );
 
-    let response = match reqwest::get(&request_url).await {
+    let response = match client.get(&request_url).send().await {
         Ok(res) => res,
         Err(err) => {
             error!("Failed to make request for {}: {}", ip.to_string(), err);

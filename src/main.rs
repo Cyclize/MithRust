@@ -7,7 +7,7 @@ use mimalloc::MiMalloc;
 use moka::future::Cache;
 use nonzero_ext::*;
 use regex::Regex;
-use reqwest::StatusCode;
+use reqwest::{Client, StatusCode};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     process::exit,
@@ -40,6 +40,7 @@ pub struct MithServer {
     database: Database,
     bucket: Arc<RateLimiter<[u8; 4], DefaultKeyedStateStore<[u8; 4]>, DefaultClock>>,
     cache: Cache<[u8; 4], bool, RandomState>,
+    client: Arc<Client>,
 }
 
 #[tonic::async_trait]
@@ -90,6 +91,7 @@ impl AuthService for MithServer {
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
+            self.client.clone(),
             self.database.clone(),
             ip,
         )
@@ -265,6 +267,7 @@ impl AuthService for MithServer {
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
+            self.client.clone(),
             self.database.clone(),
             ip,
         )
@@ -563,7 +566,7 @@ impl AuthService for MithServer {
             "https://api.ashcon.app/mojang/v2/user/{}",
             request.get_ref().username
         );
-        let premium = match reqwest::get(url).await {
+        let premium = match self.client.clone().get(url).send().await {
             Ok(res) => res.status() == StatusCode::OK,
             Err(err) => {
                 error!("Failed to make request for {} UUID: {}", uuid, err);
@@ -874,12 +877,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let bucket = Arc::new(RateLimiter::keyed(Quota::per_second(nonzero!(5u32))));
+    let client = Arc::new(reqwest::Client::new());
 
     let server = MithServer {
         config: config.clone(),
         database,
         bucket,
         cache,
+        client,
     };
 
     let token = match config.get_string("token") {
