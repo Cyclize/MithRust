@@ -78,16 +78,6 @@ impl AuthService for MithServer {
             }
         };
 
-        match self.bucket.clone().check_key(&ip.octets()) {
-            Ok(_) => (),
-            Err(_err) => {
-                return Ok(Response::new(LoginResponse {
-                    success: false,
-                    error: Error::RateLimited as i32,
-                }));
-            }
-        };
-
         let using_vpn = match using_vpn(
             self.config.clone(),
             self.cache.clone(),
@@ -381,27 +371,6 @@ impl AuthService for MithServer {
             request.get_ref().ip,
             remote_addr.ip()
         );
-
-        let ip = match Ipv4Addr::from_str(&request.get_ref().ip) {
-            Ok(ip) => ip,
-            Err(err) => {
-                error!("Failed to parse address {}: {}", &request.get_ref().ip, err);
-                return Ok(Response::new(ChangePasswordResponse {
-                    success: false,
-                    error: Error::Unspecified as i32,
-                }));
-            }
-        };
-
-        match self.bucket.clone().check_key(&ip.octets()) {
-            Ok(_) => (),
-            Err(_err) => {
-                return Ok(Response::new(ChangePasswordResponse {
-                    success: false,
-                    error: Error::RateLimited as i32,
-                }));
-            }
-        };
 
         let data = request.into_inner();
 
@@ -876,7 +845,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let bucket = Arc::new(RateLimiter::keyed(Quota::per_second(nonzero!(5u32))));
+    let bucket = Arc::new(RateLimiter::keyed(Quota::per_hour(nonzero!(5u32))));
     let client = Arc::new(reqwest::Client::new());
 
     let server = MithServer {
