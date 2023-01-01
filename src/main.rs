@@ -532,7 +532,7 @@ impl AuthService for MithServer {
         }
 
         let url = format!(
-            "https://api.ashcon.app/mojang/v2/user/{}",
+            "https://api.ashcon.app/mojang/v2/uuid/{}",
             request.get_ref().username
         );
         let premium = match self.client.clone().get(url).send().await {
