@@ -27,10 +27,8 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Musl Target
-        run: rustup target add x86_64-unknown-linux-musl
       - name: Build
-        run: cargo build --release --target x86_64-unknown-linux-musl
+        run: cargo build --release
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
